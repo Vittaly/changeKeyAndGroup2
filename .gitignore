@@ -1,0 +1,9 @@
+**/*.log
+/*/
+**/*.zip
+**/*.7z
+**/*.accdb
+**/*.laccdb
+**/*.mdb
+**/*.docx
+**/.*docx#
