@@ -7,3 +7,4 @@
 **/*.mdb
 **/*.docx
 **/.*docx#
+!empty_db_for_copy.mdb

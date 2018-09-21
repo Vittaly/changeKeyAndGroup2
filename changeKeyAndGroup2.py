@@ -20,7 +20,7 @@ import pyodbc
 #import dbf
 
 from shutil import copyfile, move
-#import csv
+import csv
 from queue import Queue
 from threading import Thread
 
@@ -35,9 +35,12 @@ OLD_DIR  = os.path.join(BASE_DIR, "proccesed")
 BAD_DIR  = os.path.join(BASE_DIR, "bad")
 TEMP_DIR  = os.path.join(BASE_DIR, "temp")
 EMPTY_DB_FULL_FN = os.path.join(BASE_DIR, "empty_db_for_copy.mdb")
-CORRESPONDENCE_FILE = "Corrrespondance.accdb"
+CORRESPONDENCE_FILE = "Correspondance.accdb"
+CATEGORIES_FILE = 'Output categories.txt'
+CATEGORIES_FILE_FN = os.path.join(BASE_DIR, CATEGORIES_FILE)
 CORRESPONDENCE_FILE_FN =  os.path.join(BASE_DIR, CORRESPONDENCE_FILE)
-CORRESPONDENCE_TABLE_NAME = 'CORR1'
+CATEGORIES_LIST = []
+CORRESPONDENCE_TABLE_NAME = 'corr1'
 
 HEADER_IDS = ['Flop_hand', 'Flop_Turn_hand', 'Flop_Turn_River_hand']
 HEADER_IDS_SQL =', '.join(['\'{0}\''.format(id) for id in HEADER_IDS])
@@ -63,7 +66,7 @@ def create_empty_file_connect(p_full_file_name):
 
 
 def create_table(p_connect):
-    p_connect.execute ("create table table1 (id VARCHAR(20) PRIMARY KEY, {0}1 VARCHAR(20), {0}2 VARCHAR(20), {0}3 VARCHAR(20), {0}4 VARCHAR(20), {0}5 VARCHAR(20), {0}6 VARCHAR(20));".format(VALUE_FIELD_PREF))
+    p_connect.execute ("create table table1 (id VARCHAR(200), {0}1 VARCHAR(500), {0}2 VARCHAR(500), {0}3 VARCHAR(500), {0}4 VARCHAR(500), {0}5 VARCHAR(500), {0}6 VARCHAR(500));".format(VALUE_FIELD_PREF))
     p_connect.commit()
     #PRIMARY KEY
 def deleteDuplicateID(p_conn, p_tab_name):
@@ -77,9 +80,9 @@ def addPK(p_conn, p_table = 'table1', p_fields = ['ID']):
 
 
 
-def CheckPkInTable(p_conn, p_table_name = 'table1'):
+def CheckPkInTable(p_conn, p_table_name = 'table1', p_pk_column = ['id']):
     try:
-        addPK(p_conn, p_table_name)
+        addPK(p_conn, p_table_name, p_pk_column)
     except Exception as pe:
         if pe.args[0] == "42S02":
            logger.error('Table {0} not exists in DB file'.format(p_table_name))
@@ -219,7 +222,6 @@ def write_to_mdb(p_conn, p_tmp_tab_name, p_row_count):
 
 
 def checkCorrespTable(p_db_file_fn):
-    table_name = 'corr1'
     if not os.path.isfile(p_db_file_fn):
         return False
     try:
@@ -228,14 +230,14 @@ def checkCorrespTable(p_db_file_fn):
         logger.error('error create conenct to access file {0}'.format(p_db_file_fn))
         return False
 
-    chk =  CheckPkInTable(connect, table_name)
+    chk =  CheckPkInTable(connect, CORRESPONDENCE_TABLE_NAME)
 
     if chk == 2:   #  was found duplicated record and need to delete it
         logger.warn('duplicating records will be deleted from file {0}'.format(p_db_file_fn))
-        deleteDuplicateID(connect, table_name)
+        deleteDuplicateID(connect, CORRESPONDENCE_TABLE_NAME)
         logger.info('duplicating records was deleted.')
         logger.info('Try create PK again')
-        if CheckPkInTable(connect, p_table_name) != 0:
+        if CheckPkInTable(connect, CORRESPONDENCE_TABLE_NAME) != 0:
             logger.info('Correspondent file is bad')
             connect.close()
             return False
@@ -299,7 +301,10 @@ def checkOriginTable(p_conn):
 
          return not FindBadRec
 
+
 def process_mdb_file(p_mdb_file):
+
+    global CATEGORIES_LIST
 
     logger.info('start of processiong file {0}'.format(p_mdb_file))
     res_file_fn =  os.path.join(RES_DIR,p_mdb_file)
@@ -351,6 +356,10 @@ def process_mdb_file(p_mdb_file):
             else:
                 select_field[f].append(VALUE_FIELD_PREF + str(i))
 
+    id_record_sql = ','.join(["'{}'".format(f) for f in new_head_row])
+    if len(new_head_row) < 7:
+         id_record_sql += ', ' + ', '.join(['Null' for i in range(7 - len(new_head_row))])
+
     #for i in range(len(select_field) ,6):
      #       select_field[str(i)] = ['Null']
 
@@ -360,26 +369,17 @@ def process_mdb_file(p_mdb_file):
        sql_fields += ', ' + ', '.join(['Null as v{0}'.format(i) for i in range(len(select_field) + 1 ,7)])
     sql_p1 = 'select id, {0} from [MS Access; DATABASE={1}].table1 where id not in ({2})'.format(sql_fields, orig_file_fn, HEADER_IDS_SQL)
 
-
-
-
-
-
     orig_file_conn.close()
 
 
+
     #Preccess 1,2,3
-    copyfile(EMPTY_DB_FULL_FN, res_file_fn)
-    logger.debug('created new empty file {0}'.format(res_file_fn))
+
     conn = open_access_conect(CORRESPONDENCE_FILE_FN)
     logger.debug('open connect to {0}'.format(CORRESPONDENCE_FILE_FN))
     cur = conn.cursor()
-    logger.debug('open connect to {0}'.format(res_file_fn))
-    res_conn =  open_access_conect(res_file_fn)
 
 
-
-    create_table(res_conn)
 
 
 
@@ -392,21 +392,24 @@ def process_mdb_file(p_mdb_file):
                into [Text;FMT=Delimited;HDR=YES; DATABASE={0};].[{1}]
                from (select c.name as id, avg(v1) as a1, avg(v2) as a2, avg(v3) as a3, avg(v4) as a4, avg(v5) as a5, avg(v6) as a6
                        from ({2}) t
-                        inner join CORR1 c ON t.id = c.id
+                        inner join {3} c ON t.id = c.id
                         group by c.name
                         union all
-                     select id, v1, v2, v3, v4, v5, v6
-                       from ({2}) t where not exists (select id from CORR1 cc where cc.id = t.id)
-                        ) order by id'''.format(TEMP_DIR, tmp_csv_file,  sql_p1)
+                        select id, v1, v2, v3, v4, v5, v6
+                       from ({2}) t where not exists (select id from {3} cc where cc.id = t.id)
+
+                     )'''.format(TEMP_DIR, tmp_csv_file,  sql_p1, CORRESPONDENCE_TABLE_NAME)
+
 
     logger.debug(sql)
 
     try:
         logger.debug('start proccessing data ...')
         cur.execute(sql)
+#!!!!!!        cur.execute("insert into [Text;FMT=Delimited;HDR=YES; DATABASE={0};].[{1}] values ({2})".format(TEMP_DIR, tmp_csv_file, id_record_sql))
         conn.commit()
     except Exception as e:
-        logger.error('Error on data processing: {0}'.format(e))
+        logger.error('Error on data processing to csv: {0}'.format(e))
         conn.rollback()
         conn.close()
 
@@ -414,8 +417,61 @@ def process_mdb_file(p_mdb_file):
         return False
 
 
+    logger.info('start process {0} file (after 3th process)'.format(tmp_csv_file))
+
+    result_data = {}
+    with open(os.path.join(TEMP_DIR, tmp_csv_file)) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+        next(csv_reader)
+        for rec in csv_reader:
+            key, postKey = rec[0].rsplit('_',1)
+            try:
+                index = CATEGORIES_LIST.index(postKey)
+            except Exception as e:
+                logger.error('Second part of ID={0} not  found in category list. Record with id {1} skeeped'.format(postKey, rec[0]))
+                continue
+            if not key in result_data:
+                result_data[key] = [['']*len(CATEGORIES_LIST)]*(len(new_head_row)-1)
+            buf_rec = result_data[key]
+            for i in range(len(new_head_row)-1):
+                if not rec[i+1]:
+                    break
+                buf_rec[i][index] = rec[i+1]
+
+    out_csv_file = 'out_' + tmp_csv_file
+    with open(os.path.join(TEMP_DIR, out_csv_file), 'w', newline='') as csvfile:
+        csvWriter = csv.writer(csvfile, quoting=csv.QUOTE_NONNUMERIC)
+        csvWriter.writerow(['ID', 'Valeur1' , 'Valeur2' , 'Valeur3', 'Valeur4', 'Valeur5', 'Valeur6'])
+        nonAp =  [None]*(7-len(new_head_row))
+        csvWriter.writerow(new_head_row + nonAp)
+        for k, v in result_data.items():
+            row = [k] + ['_'.join(i) for i in v]  + nonAp
+            csvWriter.writerow(row)
+
+
+
+
+
+    copyfile(EMPTY_DB_FULL_FN, res_file_fn)
+    logger.debug('created new empty file {0}'.format(res_file_fn))
+
+    res_conn =  open_access_conect(res_file_fn)
+    logger.debug('open connect to {0}'.format(res_file_fn))
+
+
+    #create_table(res_conn)
+    try:
+        logger.debug('move date from {0} to {1}'.format(out_csv_file, res_file_fn))
+        res_conn.cursor().execute('select * into table1 from [Text;FMT=Delimited;HDR=YES; DATABASE={0};].[{1}]'.format(TEMP_DIR, out_csv_file))
+        res_conn.commit()
+    except Exception as e:
+        logger.error('error while move:'.format(e))
+
+
 
     res = res_conn.cursor().execute('select count(*) from table1').fetchval()
+
+
     logger.info('was added {0} reords to file {1}'.format(res, res_file_fn))
     conn.close()
     logger.info('Create PK for table1 in the file {0}'.format(res_file_fn))
@@ -429,13 +485,21 @@ def process_mdb_file(p_mdb_file):
     res_conn.close()
     logger.info('end of processiong file {0}'.format(p_mdb_file))
 
+    os.remove(os.path.join(TEMP_DIR, out_csv_file))
+    os.remove(os.path.join(TEMP_DIR, tmp_csv_file))
+
     return True
 
 
 
 
 
-
+def readCategories(p_file_fn):
+    if not os.path.exists(p_file_fn):
+        logger.error('File with categories list not exists. checked file {0}'.format(p_file_fn))
+        return
+    with open(p_file_fn) as f:
+        return f.read().splitlines()
 
 
 
@@ -474,6 +538,11 @@ def main(argv):
         if not checkCorrespTable(CORRESPONDENCE_FILE_FN):
             logger.error('Correct correspondation db file not found. Work break.')
             return 101
+        global CATEGORIES_LIST
+        CATEGORIES_LIST =  readCategories(CATEGORIES_FILE_FN)
+        if not CATEGORIES_LIST:
+            logger.error('Invalid categories list. Work break')
+            return 102
 
 
 
