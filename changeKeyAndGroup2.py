@@ -428,10 +428,14 @@ def process_mdb_file(p_mdb_file):
             try:
                 index = CATEGORIES_LIST.index(postKey)
             except Exception as e:
-                logger.error('Second part of ID={0} not  found in category list. Record with id {1} skeeped'.format(postKey, rec[0]))
-                continue
+                logger.warn('Second part of ID={0} not  found in category list. Record with id {1} set as is'.format(postKey, rec[0]))
+                index  = 0
+                key = rec[0]
             if not key in result_data:
-                result_data[key] = [['']*len(CATEGORIES_LIST)]*(len(new_head_row)-1)
+                if key != rec[0]:
+                    result_data[key] = [['']*len(CATEGORIES_LIST)]*(len(new_head_row)-1)
+                else:
+                    result_data[key] = [['']]*(len(new_head_row)-1) # if key not found in category list set record as is (only one element in array)
             buf_rec = result_data[key]
             for i in range(len(new_head_row)-1):
                 if not rec[i+1]:
