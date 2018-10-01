@@ -388,7 +388,7 @@ def process_mdb_file(p_mdb_file):
         f.write('DecimalSymbol=.')
 
 
-    sql = '''select id, a1 as valeur1, a2 as Valeur2, a3 as Valeur3, a4 as Valeur4, a5 as Valeur5, a6 as Valeur6
+    sql = '''select id, IIF(isNull(a1), null, cInt(a1)) as valeur1, IIF(isNull(a2), null, cInt(a2)) as Valeur2, IIF(isNull(a3), null, cInt(a3)) as Valeur3, IIF(isNull(a4), null, cInt(a4)) as Valeur4, IIF(isNull(a5), null, cInt(a5)) as Valeur5, IIF(isNull(a6), null, cInt(a6)) as Valeur6
                into [Text;FMT=Delimited;HDR=YES; DATABASE={0};].[{1}]
                from (select c.name as id, avg(v1) as a1, avg(v2) as a2, avg(v3) as a3, avg(v4) as a4, avg(v5) as a5, avg(v6) as a6
                        from ({2}) t
@@ -424,13 +424,18 @@ def process_mdb_file(p_mdb_file):
         csv_reader = csv.reader(csv_file, delimiter=',')
         next(csv_reader)
         for rec in csv_reader:
-            key, postKey = rec[0].rsplit('_',1)
-            try:
-                index = CATEGORIES_LIST.index(postKey)
-            except Exception as e:
-                logger.warn('Second part of ID={0} not  found in category list. Record with id {1} set as is'.format(postKey, rec[0]))
-                index  = 0
-                key = rec[0]
+            if '_' in rec[0]:
+                key, postKey = rec[0].rsplit('_',1)
+                try:
+                    index = CATEGORIES_LIST.index(postKey)
+                except Exception as e:
+                    logger.warn('Second part of ID={0} not  found in category list. Record with id {1} set as is'.format(postKey, rec[0]))
+                    index  = 0
+                    key = rec[0]
+            else:
+               index  = 0
+               key = rec[0]
+
             if not key in result_data:
                 if key != rec[0]:
                     result_data[key] = [['']*len(CATEGORIES_LIST)]*(len(new_head_row)-1)
