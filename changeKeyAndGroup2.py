@@ -39,6 +39,7 @@ CORRESPONDENCE_FILE = "Correspondance.accdb"
 CATEGORIES_FILE = 'Output categories.txt'
 CATEGORIES_FILE_FN = os.path.join(BASE_DIR, CATEGORIES_FILE)
 CORRESPONDENCE_FILE_FN =  os.path.join(BASE_DIR, CORRESPONDENCE_FILE)
+CORRESPONDENCE_TMP_FILE_FN = os.path.join(TEMP_DIR, 'tmp_' + CORRESPONDENCE_FILE + '.mdb')
 CATEGORIES_LIST = []
 CORRESPONDENCE_TABLE_NAME = 'corr1'
 
@@ -71,7 +72,11 @@ def create_table(p_connect):
     #PRIMARY KEY
 def deleteDuplicateID(p_conn, p_tab_name):
   cur = p_conn.cursor()
-  cur.execute('delete distinctrow c.*  from {0} c inner join  (select id from {0} group by id having count(*) > 1) d on c.id = d.id'.format(p_tab_name))
+  copyfile(EMPTY_DB_FULL_FN, CORRESPONDENCE_TMP_FILE_FN)
+
+  cur.execute('select c.id, min(left(name,255)) as n into [MS Access;DATABASE={0}].corr_tmp  from {1} c group by id'.format(CORRESPONDENCE_TMP_FILE_FN,  p_tab_name))
+  cur.execute('drop table {0}'.format(p_tab_name))
+  cur.execute('select id, n as name into {0} from [MS Access;DATABASE={1}].corr_tmp'.format(p_tab_name, CORRESPONDENCE_TMP_FILE_FN))
   p_conn.commit()
 
 def addPK(p_conn, p_table = 'table1', p_fields = ['ID']):
@@ -232,6 +237,8 @@ def checkCorrespTable(p_db_file_fn):
 
     chk =  CheckPkInTable(connect, CORRESPONDENCE_TABLE_NAME)
 
+    res = False
+
     if chk == 2:   #  was found duplicated record and need to delete it
         logger.warn('duplicating records will be deleted from file {0}'.format(p_db_file_fn))
         deleteDuplicateID(connect, CORRESPONDENCE_TABLE_NAME)
@@ -239,14 +246,17 @@ def checkCorrespTable(p_db_file_fn):
         logger.info('Try create PK again')
         if CheckPkInTable(connect, CORRESPONDENCE_TABLE_NAME) != 0:
             logger.info('Correspondent file is bad')
-            connect.close()
-            return False
+        else:
+          res = True
+
     elif chk == 0:
-        connect.close()
-        return True
-    else:
-        connect.close()
-        return False
+        res = True
+
+    connect.close()
+    if os.path.exists(CORRESPONDENCE_TMP_FILE_FN):
+        os.remove(CORRESPONDENCE_TMP_FILE_FN)
+
+    return res
 
 
 def checkDataInNewFile(p_db_file_fn):
