@@ -448,9 +448,9 @@ def process_mdb_file(p_mdb_file):
 
             if not key in result_data:
                 if key != rec[0]:
-                    result_data[key] = [['']*len(CATEGORIES_LIST)]*(len(new_head_row)-1)
+                    result_data[key] = [['' for i in range(len(CATEGORIES_LIST))] for k in range(len(new_head_row)-1)]
                 else:
-                    result_data[key] = [['']]*(len(new_head_row)-1) # if key not found in category list set record as is (only one element in array)
+                    result_data[key] = [[''] for i in range(len(new_head_row)-1)] # if key not found in category list set record as is (only one element in array)
             buf_rec = result_data[key]
             for i in range(len(new_head_row)-1):
                 if not rec[i+1]:
