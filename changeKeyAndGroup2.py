@@ -277,7 +277,6 @@ def checkDataInNewFile(p_db_file_fn):
     connect.close()
 
     res =  checkOriginTable(p_db_file_fn)
-    connect.close()
     return  res
 
 
