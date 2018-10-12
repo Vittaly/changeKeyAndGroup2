@@ -273,7 +273,10 @@ def checkDataInNewFile(p_db_file_fn):
         connect.close()
         return False
 
-    res =  checkOriginTable(connect)
+    # check record in new table except for record with id not in corr1 table
+    connect.close()
+
+    res =  checkOriginTable(p_db_file_fn)
     connect.close()
     return  res
 
@@ -287,9 +290,11 @@ def check_dirs():
             os.makedirs(dn)
 
 
-def checkOriginTable(p_conn):
+def checkOriginTable(p_new_file_fn):
 
-         cur = p_conn.cursor()
+         connect = open_access_conect(CORRESPONDENCE_FILE_FN)
+
+         cur = connect.cursor()
 
          cnt = cur.execute('select count(*) from table1 where id in ({0})'.format(HEADER_IDS_SQL)).fetchval()
          if cnt > 1:
@@ -300,7 +305,7 @@ def checkOriginTable(p_conn):
          dataFields = ['valeur{0}'.format(i) for i in list(range(1,7))]
          filter_sniplet =  ['{0} is not null and (not IsNumeric({0}) or Instr({0}, \'-\') > 0)'.format(f) for f in dataFields]
 
-         sql = 'select * from table1 t where t.id not in ({1}) and ({0})'.format(' or '.join(filter_sniplet), HEADER_IDS_SQL)
+         sql = 'select * from [MS Access; DATABASE={2}].table1 t where t.id not in ({1}) and ({0}) and t.id in (select d.id from {3} d)'.format(' or '.join(filter_sniplet), HEADER_IDS_SQL, p_new_file_fn, CORRESPONDENCE_TABLE_NAME )
 
          cur.execute(sql)
          FindBadRec = False
@@ -309,6 +314,7 @@ def checkOriginTable(p_conn):
             if not FindBadRec: FindBadRec = True
             logger.error('find record with not number or negative value: {}'.format(row))
 
+         connect.close()
          return not FindBadRec
 
 
