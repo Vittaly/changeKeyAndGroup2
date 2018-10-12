@@ -296,7 +296,7 @@ def checkOriginTable(p_new_file_fn):
 
          cur = connect.cursor()
 
-         cnt = cur.execute('select count(*) from table1 where id in ({0})'.format(HEADER_IDS_SQL)).fetchval()
+         cnt = cur.execute('select count(*) from [MS Access; DATABASE={1}].table1 where id in ({0})'.format(HEADER_IDS_SQL, p_new_file_fn)).fetchval()
          if cnt > 1:
              logger.error('found more then one record with id: {}'.format(HEADER_IDS))
              return False
