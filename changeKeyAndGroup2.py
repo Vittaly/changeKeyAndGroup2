@@ -403,25 +403,31 @@ def process_mdb_file(p_mdb_file):
         f.write('DecimalSymbol=.')
 
 
-    sql = '''select id, IIF(isNull(a1), null, Cstr(a1)) as valeur1, IIF(isNull(a2), null, Cstr(a2)) as Valeur2, IIF(isNull(a3), null, Cstr(a3)) as Valeur3, IIF(isNull(a4), null, Cstr(a4)) as Valeur4, IIF(isNull(a5), null, Cstr(a5)) as Valeur5, IIF(isNull(a6), null, Cstr(a6)) as Valeur6
+    sql1 = '''select id, IIF(isNull(a1), null, Cstr(Cint(a1))) as valeur1, IIF(isNull(a2), null, Cstr(Cint(a2))) as Valeur2, IIF(isNull(a3), null, Cstr(Cint(a3))) as Valeur3, IIF(isNull(a4), null, Cstr(Cint(a4))) as Valeur4, IIF(isNull(a5), null, Cstr(Cint(a5))) as Valeur5, IIF(isNull(a6), null, Cstr(Cint(a6))) as Valeur6
                into [Text;FMT=Delimited;HDR=YES; DATABASE={0};].[{1}]
-               from (
-               select c.name as id, avg(v1) as a1, avg(v2) as a2, avg(v3) as a3, avg(v4) as a4, avg(v5) as a5, avg(v6) as a6
+               from (select c.name as id, avg(v1) as a1, avg(v2) as a2, avg(v3) as a3, avg(v4) as a4, avg(v5) as a5, avg(v6) as a6
                        from ({2}) t
                         inner join {3} c ON t.id = c.id
-                        group by c.name
+                        group by c.name)
+                     '''.format(TEMP_DIR, tmp_csv_file,  sql_p1, CORRESPONDENCE_TABLE_NAME)
 
-                union all
+
+    sql2 =  '''insert into [Text;FMT=Delimited;HDR=YES; DATABASE={0};].[{1}] (id, valeur1, valeur2, valeur3, valeur4, valeur5, valeur6)
                select id, valeur1, valeur2, valeur3, valeur4, valeur5, valeur6
-                       from [MS Access; DATABASE={4}].table1 t where not exists (select id from {3} cc where cc.id = t.id)
-                     )'''.format(TEMP_DIR, tmp_csv_file,  sql_p1, CORRESPONDENCE_TABLE_NAME, orig_file_fn)
+                       from [MS Access; DATABASE={2}].table1 t where not exists (select id from {3} cc where cc.id = t.id)
+                     '''.format(TEMP_DIR, tmp_csv_file, orig_file_fn, CORRESPONDENCE_TABLE_NAME)
 
 
-    logger.debug(sql)
+    logger.debug(sql1)
 
     try:
         logger.debug('start proccessing data ...')
-        cur.execute(sql)
+        logger.info('add to tmp file new processing records')
+        cur.execute(sql1)
+        logger.info('add to tmp file NO processing records')
+        logger.debug(sql2)
+        cur.execute(sql2)
+
 #!!!!!!        cur.execute("insert into [Text;FMT=Delimited;HDR=YES; DATABASE={0};].[{1}] values ({2})".format(TEMP_DIR, tmp_csv_file, id_record_sql))
         conn.commit()
     except Exception as e:
