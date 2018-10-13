@@ -403,17 +403,18 @@ def process_mdb_file(p_mdb_file):
         f.write('DecimalSymbol=.')
 
 
-    sql = '''select id, IIF(isNull(a1), null, cInt(a1)) as valeur1, IIF(isNull(a2), null, cInt(a2)) as Valeur2, IIF(isNull(a3), null, cInt(a3)) as Valeur3, IIF(isNull(a4), null, cInt(a4)) as Valeur4, IIF(isNull(a5), null, cInt(a5)) as Valeur5, IIF(isNull(a6), null, cInt(a6)) as Valeur6
+    sql = '''select id, IIF(isNull(a1), null, Cstr(a1)) as valeur1, IIF(isNull(a2), null, Cstr(a2)) as Valeur2, IIF(isNull(a3), null, Cstr(a3)) as Valeur3, IIF(isNull(a4), null, Cstr(a4)) as Valeur4, IIF(isNull(a5), null, Cstr(a5)) as Valeur5, IIF(isNull(a6), null, Cstr(a6)) as Valeur6
                into [Text;FMT=Delimited;HDR=YES; DATABASE={0};].[{1}]
-               from (select c.name as id, avg(v1) as a1, avg(v2) as a2, avg(v3) as a3, avg(v4) as a4, avg(v5) as a5, avg(v6) as a6
+               from (
+               select c.name as id, avg(v1) as a1, avg(v2) as a2, avg(v3) as a3, avg(v4) as a4, avg(v5) as a5, avg(v6) as a6
                        from ({2}) t
                         inner join {3} c ON t.id = c.id
                         group by c.name
-                        union all
-                        select id, v1, v2, v3, v4, v5, v6
-                       from ({2}) t where not exists (select id from {3} cc where cc.id = t.id)
 
-                     )'''.format(TEMP_DIR, tmp_csv_file,  sql_p1, CORRESPONDENCE_TABLE_NAME)
+                union all
+               select id, valeur1, valeur2, valeur3, valeur4, valeur5, valeur6
+                       from [MS Access; DATABASE={4}].table1 t where not exists (select id from {3} cc where cc.id = t.id)
+                     )'''.format(TEMP_DIR, tmp_csv_file,  sql_p1, CORRESPONDENCE_TABLE_NAME, orig_file_fn)
 
 
     logger.debug(sql)
