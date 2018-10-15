@@ -513,7 +513,7 @@ def process_mdb_file(p_mdb_file):
         if type(pe) == pyodbc.Error and  pe.args[0] == "HY000":
             logger.info('PK for table {} found. Check complite'.format(p_table))
         else:
-            logger.error('Error while creating PK in the file {0}. Error: {1}'.format(p_mdb_file, pe))
+            logger.error('Error while creating PK in table1. Error: {0}'.format(pe))
 
     res_conn.close()
     logger.info('end of processiong file {0}'.format(p_mdb_file))
