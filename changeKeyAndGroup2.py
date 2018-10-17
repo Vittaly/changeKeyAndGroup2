@@ -402,6 +402,9 @@ def process_mdb_file(p_mdb_file):
         f.write('[{0}]\n'.format(tmp_csv_file))
         f.write('DecimalSymbol=.')
 
+    if os.path.exists(os.path.join(TEMP_DIR, tmp_csv_file)):
+       os.remove(os.path.join(TEMP_DIR, tmp_csv_file))
+
 
     sql1 = '''select id, IIF(isNull(a1), null, Cstr(Cint(a1))) as valeur1, IIF(isNull(a2), null, Cstr(Cint(a2))) as Valeur2, IIF(isNull(a3), null, Cstr(Cint(a3))) as Valeur3, IIF(isNull(a4), null, Cstr(Cint(a4))) as Valeur4, IIF(isNull(a5), null, Cstr(Cint(a5))) as Valeur5, IIF(isNull(a6), null, Cstr(Cint(a6))) as Valeur6
                into [Text;FMT=Delimited;HDR=YES; DATABASE={0};].[{1}]
@@ -497,13 +500,15 @@ def process_mdb_file(p_mdb_file):
         res_conn.commit()
     except Exception as e:
         logger.error('error while move:'.format(e))
-
+        res_conn.close()
+        conn.close()
+        raise e
 
 
     res = res_conn.cursor().execute('select count(*) from table1').fetchval()
 
 
-    logger.info('was added {0} reords to file {1}'.format(res, res_file_fn))
+    logger.info('was added {0} reсords to file {1}'.format(res, res_file_fn))
     conn.close()
     logger.info('Create PK for table1 in the file {0}'.format(res_file_fn))
     try:
@@ -596,15 +601,18 @@ def main(argv):
             logger.info('Check the file: {0}'.format(nf))
 
             if checkDataInNewFile(nf_fn):
-                process_mdb_file(nf)
-                move(nf_fn, os.path.join(OLD_DIR, nf))
-                logger.debug('the file {0} moved to dir {0}'.format(OLD_DIR))
+                try:
+                 process_mdb_file(nf)
+                 move(nf_fn, os.path.join(OLD_DIR, nf))
+                 logger.debug('the file {0} moved to dir {0}'.format(OLD_DIR))
+                except Exception as e:
+                 logger.error('file {0} was preccessed fith error. it is moving to dir {1}'.format(nf, BAD_DIR))
+                 move(nf_fn, os.path.join(BAD_DIR, nf))
+                 logger.debug('the file {0} moved to dir {0}'.format(BAD_DIR))
             else:
                 logger.error('file {0} if bad moving to dir {1}'.format(nf, BAD_DIR))
                 move(nf_fn, os.path.join(BAD_DIR, nf))
                 logger.debug('the file {0} moved to dir {0}'.format(BAD_DIR))
-
-
 
         logger.info('No more files. Stoping...')
 
