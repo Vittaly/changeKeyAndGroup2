@@ -67,7 +67,7 @@ def create_empty_file_connect(p_full_file_name):
 
 
 def create_table(p_connect):
-    p_connect.execute ("create table table1 (id VARCHAR(200), {0}1 VARCHAR(500), {0}2 VARCHAR(500), {0}3 VARCHAR(500), {0}4 VARCHAR(500), {0}5 VARCHAR(500), {0}6 VARCHAR(500));".format(VALUE_FIELD_PREF))
+    p_connect.execute ("create table table1 (id VARCHAR(255), {0}1 text, {0}2 text, {0}3 text, {0}4 text, {0}5 text, {0}6 text);".format(VALUE_FIELD_PREF))
     p_connect.commit()
     #PRIMARY KEY
 def deleteDuplicateID(p_conn, p_tab_name):
@@ -415,11 +415,6 @@ def process_mdb_file(p_mdb_file):
                      '''.format(TEMP_DIR, tmp_csv_file,  sql_p1, CORRESPONDENCE_TABLE_NAME)
 
 
-    sql2 =  '''insert into [Text;FMT=Delimited;HDR=YES; DATABASE={0};].[{1}] (id, valeur1, valeur2, valeur3, valeur4, valeur5, valeur6)
-               select id, valeur1, valeur2, valeur3, valeur4, valeur5, valeur6
-                       from [MS Access; DATABASE={2}].table1 t where not exists (select id from {3} cc where cc.id = t.id)
-                     '''.format(TEMP_DIR, tmp_csv_file, orig_file_fn, CORRESPONDENCE_TABLE_NAME)
-
 
     logger.debug(sql1)
 
@@ -427,9 +422,9 @@ def process_mdb_file(p_mdb_file):
         logger.debug('start proccessing data ...')
         logger.info('add to tmp file new processing records')
         cur.execute(sql1)
-        logger.info('add to tmp file NO processing records')
-        logger.debug(sql2)
-        cur.execute(sql2)
+##        logger.info('add to tmp file NO processing records')
+##        logger.debug(sql2)
+##        cur.execute(sql2)
 
 #!!!!!!        cur.execute("insert into [Text;FMT=Delimited;HDR=YES; DATABASE={0};].[{1}] values ({2})".format(TEMP_DIR, tmp_csv_file, id_record_sql))
         conn.commit()
@@ -439,7 +434,7 @@ def process_mdb_file(p_mdb_file):
         conn.close()
 
         logger.info('end of processiong file {0}'.format(p_mdb_file))
-        return False
+        raise e
 
 
     logger.info('start process {0} file (after 3th process)'.format(tmp_csv_file))
@@ -449,7 +444,7 @@ def process_mdb_file(p_mdb_file):
         csv_reader = csv.reader(csv_file, delimiter=',')
         next(csv_reader)
         for rec in csv_reader:
-            if '_' in rec[0]:
+            if '_' in rec[0]:    #check symbol to split the string
                 key, postKey = rec[0].rsplit('_',1)
                 try:
                     index = CATEGORIES_LIST.index(postKey)
@@ -458,6 +453,7 @@ def process_mdb_file(p_mdb_file):
                     index  = 0
                     key = rec[0]
             else:
+               logger.warn('id ({0}) not contain "_" record will be added to result as is'.format(rec[0]))
                index  = 0
                key = rec[0]
 
@@ -495,11 +491,23 @@ def process_mdb_file(p_mdb_file):
 
     #create_table(res_conn)
     try:
+        logger.debug('create empty table1');
+        create_table(res_conn)
         logger.debug('move date from {0} to {1}'.format(out_csv_file, res_file_fn))
-        res_conn.cursor().execute('select * into table1 from [Text;FMT=Delimited;HDR=YES; DATABASE={0};].[{1}]'.format(TEMP_DIR, out_csv_file))
-        res_conn.commit()
+        cur.execute('''insert into [MS Access; DATABASE={0};].table1 (id, valeur1, valeur2, valeur3, valeur4, valeur5, valeur6)
+                              select id, valeur1, valeur2, valeur3, valeur4, valeur5, valeur6 from [Text;FMT=Delimited;HDR=YES; DATABASE={1};].[{2}]'''.format(res_file_fn, TEMP_DIR, out_csv_file))
+
+        sql2 =  '''insert into [MS Access; DATABASE={0};].table1 (id, valeur1, valeur2, valeur3, valeur4, valeur5, valeur6)
+               select id, valeur1, valeur2, valeur3, valeur4, valeur5, valeur6
+                       from [MS Access; DATABASE={1}].table1 t where not exists (select id from {2} cc where cc.id = t.id)
+                     '''.format(res_file_fn, orig_file_fn, CORRESPONDENCE_TABLE_NAME)
+
+        logger.debug('Move old (non preccessed) rows to result file')
+        logger.debug(sql2)
+        cur.execute(sql2)
+        conn.commit()
     except Exception as e:
-        logger.error('error while move:'.format(e))
+        logger.error('error while move: {0}'.format(e))
         res_conn.close()
         conn.close()
         raise e
