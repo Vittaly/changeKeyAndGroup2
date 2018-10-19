@@ -602,6 +602,7 @@ def main(argv):
             exit(0)
         logger.info('Found {0} files'.format(len(new_files)))
 
+        new_files.sort() # sorting by alphabetical
 
         for nf in new_files:
             nf_fn = os.path.join(NEW_DIR, nf)
