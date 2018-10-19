@@ -324,7 +324,8 @@ def process_mdb_file(p_mdb_file):
     logger.info('start of processiong file {0}'.format(p_mdb_file))
     res_file_fn =  os.path.join(RES_DIR,p_mdb_file)
     orig_file_fn =  os.path.join(NEW_DIR, p_mdb_file)
-    tmp_csv_file =  p_mdb_file + '.csv'
+    tmp_csv_file = 'in_data.csv'
+    out_csv_file = 'out_data.csv'
 
 
     #Preccess 1: find id in proccesing file and define sql for grouping value fields
@@ -468,7 +469,7 @@ def process_mdb_file(p_mdb_file):
                     break
                 buf_rec[i][index] = rec[i+1]
 
-    out_csv_file = 'out_' + tmp_csv_file
+
     with open(os.path.join(TEMP_DIR, out_csv_file), 'w', newline='') as csvfile:
         csvWriter = csv.writer(csvfile, quoting=csv.QUOTE_NONNUMERIC)
         csvWriter.writerow(['ID', 'Valeur1' , 'Valeur2' , 'Valeur3', 'Valeur4', 'Valeur5', 'Valeur6'])
