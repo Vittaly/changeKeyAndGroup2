@@ -571,7 +571,7 @@ def main(argv):
 
 
 
-        hdlr = logging.FileHandler(logFileName)
+        hdlr = logging.FileHandler(logFileName, encoding = "UTF-8")
         formatter = logging.Formatter('%(asctime)s %(levelname)s [%(threadName)s] %(message)s')
         hdlr.setFormatter(formatter)
         logger.addHandler(hdlr)
